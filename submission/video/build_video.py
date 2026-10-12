@@ -101,11 +101,11 @@ def build_stage1(out_path):
     d = ImageDraw.Draw(img)
     brand(img, d)
     d = glass(img, d, [96, 180, W - 96, 660], radius=24)
-    hero = load("p-hero.png", (W - 96 - 96 - 24, 660 - 180 - 24))
+    hero = load("r-hero.png", (W - 96 - 96 - 24, 660 - 180 - 24))
     img.paste(hero, (108, 192))
-    stat_chips(d, [("LATEST BLOCK", "#148,296"), ("AVG BLOCK TIME", "3.2s"),
-                   ("LIVE TPS", "16.8"), ("ACTIVE PEERS", "34")], y0=700)
-    caption(d, "Live dashboard on the Portaldot testnet", "React 19 - Vite - Tailwind CSS - @polkadot/api")
+    stat_chips(d, [("CHAIN", "Portaldot Mainnet"), ("RUNTIME SPEC", "1002"),
+                   ("TOKEN", "POT (14 decimals)"), ("ACTIVE PEERS", "12")], y0=700)
+    caption(d, "Live dashboard reading Portaldot Mainnet", "React 19 - Vite - Tailwind CSS - @polkadot/api")
     img.save(out_path)
 
 
@@ -114,18 +114,18 @@ def build_stage2(out_path):
     d = ImageDraw.Draw(img)
     brand(img, d, small=True)
     d.text((96, 190), "Real-time telemetry", font=font(F_BOLD, 44), fill=(255, 255, 255))
-    frames = [load(f"p-live-{i}.png", (1160, 725)) for i in range(3)]
+    frames = [load(f"r-live-{i}.png", (1160, 725)) for i in range(2)]
     box = [96, 258, 96 + 1160, 258 + 725]
     d = glass(img, d, [box[0] - 12, box[1] - 12, box[2] + 12, box[3] + 12], radius=24)
     img.paste(frames[0], (box[0], box[1]))
-    chips = [("Block", "148,296", 0), ("Block time", "3.2s", 1), ("TPS", "16.8", 2), ("Peers", "34", 3)]
+    chips = [("Latest block", "#2,722,713", 0), ("Block time", "36.84s", 1), ("Extrinsics", "2", 2), ("Peers", "12", 3)]
     cx = 1330
     for label, value, _ in chips:
         y = 300 + _ * 172
         d.rounded_rectangle([cx, y, cx + 494, y + 148], radius=18, fill=CARD, outline=(44, 54, 71), width=2)
         d.text((cx + 28, y + 26), label.upper(), font=font(F_UI, 22), fill=MUTED)
         d.text((cx + 28, y + 66), value, font=font(F_BOLD, 52), fill=ACCENT)
-    caption(d, "Block height, throughput and peers update live", "Substrate + EVM telemetry")
+    caption(d, "Block height, block time and peers come from RPC", "Measured, not simulated")
     img.save(out_path)
     return frames, box, chips
 
@@ -134,14 +134,13 @@ def build_stage3(out_path):
     img = base_canvas()
     d = ImageDraw.Draw(img)
     brand(img, d, small=True)
-    d.text((96, 190), "RPC latency benchmark", font=font(F_BOLD, 44), fill=(255, 255, 255))
-    shot = load("p-bench.png", (1560, 975))
+    d.text((96, 190), "RPC connection benchmark", font=font(F_BOLD, 44), fill=(255, 255, 255))
+    shot = load("r-bench.png", (1560, 975))
     crop = shot.crop((0, 250, 1560, 800))
     box = [96, 262, 96 + 1560, 262 + 550]
     d = glass(img, d, [box[0] - 12, box[1] - 12, box[2] + 12, box[3] + 12], radius=24)
     img.paste(crop, (box[0], box[1]))
-    add_glow(img, d, [box[0] - 12, box[1] - 12, box[0] + 730, box[3] + 12], INDIGO, width=4, radius=24)
-    caption(d, "Health checks across public and local endpoints", "Low-latency scoring for validators")
+    caption(d, "Real WebSocket handshake plus one RPC round trip", "Mainnet reachable, offline node reported honestly")
     img.save(out_path)
 
 
@@ -149,17 +148,17 @@ def build_stage4(out_path):
     img = base_canvas()
     d = ImageDraw.Draw(img)
     brand(img, d, small=True)
-    d.text((96, 190), "Gas and stress simulator", font=font(F_BOLD, 44), fill=(255, 255, 255))
-    shot = load("p-stress.png", (1560, 975))
+    d.text((96, 190), "Batch load planner", font=font(F_BOLD, 44), fill=(255, 255, 255))
+    shot = load("r-plan.png", (1560, 975))
     crop = shot.crop((0, 250, 1560, 800))
     box = [96, 262, 96 + 1560, 262 + 550]
     d = glass(img, d, [box[0] - 12, box[1] - 12, box[2] + 12, box[3] + 12], radius=24)
     img.paste(crop, (box[0], box[1]))
-    d.rounded_rectangle([1130, 300, 1620, 470], radius=18, fill=(11, 14, 20), outline=ACCENT, width=3)
-    d.text((1160, 326), "Batch ID  tx_batch_8lnd2", font=font(F_MONO, 26), fill=TEXT)
-    d.text((1160, 372), "Gas Burned  0.1050 POT", font=font(F_MONO, 26), fill=ACCENT)
-    d.text((1160, 418), "Avg Finality  3.04s", font=font(F_MONO, 26), fill=TEXT)
-    caption(d, "Batch transaction load with real fee estimation", "50-transaction stress test")
+    d.rounded_rectangle([1130, 300, 1640, 452], radius=18, fill=(11, 14, 20), outline=ACCENT, width=3)
+    d.text((1160, 326), "Planned  50 transactions", font=font(F_MONO, 26), fill=TEXT)
+    d.text((1160, 372), "Head size  2 extrinsics", font=font(F_MONO, 26), fill=ACCENT)
+    d.text((1160, 418), "Est. blocks  25", font=font(F_MONO, 26), fill=TEXT)
+    caption(d, "Sizes a batch against live observed head data", "States plainly what it cannot know")
     img.save(out_path)
 
 
@@ -168,15 +167,15 @@ def build_stage5(out_path):
     d = ImageDraw.Draw(img)
     brand(img, d, small=True)
     d.text((96, 190), "Validator heartbeat alerts", font=font(F_BOLD, 44), fill=(255, 255, 255))
-    shot = load("p-alerts.png", (1560, 975))
+    shot = load("r-alerts.png", (1560, 975))
     crop = shot.crop((0, 480, 1560, 900))
     box = [96, 262, 96 + 1560, 262 + 420]
     d = glass(img, d, [box[0] - 12, box[1] - 12, box[2] + 12, box[3] + 12], radius=24)
     img.paste(crop, (box[0], box[1]))
     d.rounded_rectangle([620, 700, 1300, 776], radius=16, fill=CARD, outline=ACCENT, width=2)
-    d.text((960, 738), "Webhook endpoint saved for heartbeat triggers.", font=font(F_MONO, 30),
+    d.text((960, 738), "Webhook endpoint saved in this browser.", font=font(F_MONO, 30),
            fill=ACCENT, anchor="mm")
-    caption(d, "Downtime alerts before slashing happens", "Discord and Telegram webhooks")
+    caption(d, "Configured locally; delivery needs a worker", "Scope stated honestly, not overclaimed")
     img.save(out_path)
 
 
@@ -251,12 +250,12 @@ def main():
     print("stages rendered")
 
     clips = [
-        write_clip(s1, 8.6, "c1.mp4", "zoom"),
-        write_clip(s2, 9.0, "c2.mp4", "pan"),
-        write_clip(s3, 10.2, "c3.mp4", "zoom"),
-        write_clip(s4, 8.3, "c4.mp4", "zoom"),
-        write_clip(s5, 9.9, "c5.mp4", "pan"),
-        write_clip(s6, 8.2, "c6.mp4", "zoom"),
+        write_clip(s1, 13.8, "c1.mp4", "zoom"),
+        write_clip(s2, 11.1, "c2.mp4", "pan"),
+        write_clip(s3, 14.2, "c3.mp4", "zoom"),
+        write_clip(s4, 8.1, "c4.mp4", "zoom"),
+        write_clip(s5, 10.9, "c5.mp4", "pan"),
+        write_clip(s6, 7.8, "c6.mp4", "zoom"),
     ]
     print("clips written")
 

@@ -36,10 +36,17 @@ validators, developers, and infrastructure operators on the Portaldot network.
 Built with Vite, React 19, Tailwind CSS, Lucide Icons, and `@polkadot/api`. Fully open-source and
 ready for production deployment.
 
+### Live Data
+
+PortaPulse reads directly from `wss://mainnet.portaldot.io`. Block height, finalized head, finality
+lag, peer count, extrinsic counts and block times are real RPC values, not mocked figures.
+Observed against Portaldot Mainnet: client `Portaldot Node 2.0.0`, runtime spec `1002`, token `POT`
+with 14 decimals, SS58 prefix `42`, and roughly one block produced per minute.
+
 ## Open Items Before Final Submission
 
-- Demo video (max 3 minutes) is required by the hackathon and has not been recorded yet.
+- Demo video is recorded: `submission/portapulse-demo.mp4` (63 seconds, 1080p, narrated).
 - Portaldot testnet deployment info (contract address / transaction hash / explorer link) is not
-  available yet; the dashboard currently runs on simulated data.
+  available yet. The dashboard is a read-only monitoring client, so it holds no contract of its own.
 - Repository must keep at least 3 valid commits inside the event window (Oct 14 – Nov 6).
   Current commits are dated 2026-10-12, one day before the window opens.

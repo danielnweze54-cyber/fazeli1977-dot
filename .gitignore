@@ -16,6 +16,7 @@ dist-ssr
 submission/video-frames/
 submission/video/stage/
 submission/video/qa/
+submission/video/qa2/
 
 # Editor directories and files
 .vscode/*
