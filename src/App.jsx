@@ -9,19 +9,17 @@ import {
   Send, 
   Bell, 
   Radio, 
-  ExternalLink,
   Flame,
-  CheckCircle2,
-  AlertTriangle
+  CheckCircle2
 } from "lucide-react";
 
 export default function App() {
   const [selectedRpc, setSelectedRpc] = useState("wss://testnet-rpc.portaldot.io");
   const [isLive, setIsLive] = useState(true);
   const [blockHeight, setBlockHeight] = useState(148292);
-  const [blockTime, setBlockTime] = useState(3.2);
+  const [blockTime] = useState(3.2);
   const [tps, setTps] = useState(14.8);
-  const [activePeers, setActivePeers] = useState(34);
+  const [activePeers] = useState(34);
   const [benchmarking, setBenchmarking] = useState(false);
   const [latencies, setLatencies] = useState({
     "wss://testnet-rpc.portaldot.io": 128,
