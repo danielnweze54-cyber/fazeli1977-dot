@@ -1,16 +1,26 @@
-# React + Vite
+﻿# PortaPulse ⚡
+### Node Operations & Telemetry Suite for Portaldot V3
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+PortaPulse is a high-performance telemetry, RPC benchmarking, and gas stress-testing suite designed specifically for validator operators and node runners on the **Portaldot** network.
 
-Currently, two official plugins are available:
+## 🚀 Key Features
+- **Real-Time Node Telemetry:** Live block height tracking, average block time verification, consensus health status, and active peer counts.
+- **RPC Latency Benchmark:** Instant WebSocket & HTTP latency checks across testnet and local development nodes.
+- **Gas & Stress Simulator:** Interactive transaction batch simulation tool to analyze throughput and estimate gas burn.
+- **Heartbeat & Webhook Alerts:** Instant notification hooks for node downtime and sync failures.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🛠️ Tech Stack
+- **Frontend:** React, Vite, Tailwind CSS
+- **Icons:** Lucide React
+- **Network Layer:** Substrate API (`@polkadot/api`)
 
-## React Compiler
+## 🏃 Getting Started Locally
+\`\`\`bash
+git clone https://github.com/naomi197/portapulse.git
+cd portapulse
+npm install
+npm run dev
+\`\`\`
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## 🏆 Hacker House 2026
+Built for **Portaldot Hacker House 2026** — *Track 3: Node Operations & Tooling*.
