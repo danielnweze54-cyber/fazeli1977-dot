@@ -18,6 +18,9 @@ submission/video/stage/
 submission/video/qa/
 submission/video/qa2/
 
+# Local worker configuration may contain a private webhook URL
+worker.config.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

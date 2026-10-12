@@ -1,0 +1,11 @@
+{
+  "endpoint": "wss://mainnet.portaldot.io",
+  "webhookUrl": "https://discord.com/api/webhooks/REPLACE_ME/REPLACE_ME",
+  "pollMs": 20000,
+  "thresholds": {
+    "stallMs": 180000,
+    "minPeers": 1,
+    "finalityLagBlocks": 10,
+    "cooldownMs": 300000
+  }
+}

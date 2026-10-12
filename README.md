@@ -85,6 +85,51 @@ These scripts hit the live network and are useful for confirming results indepen
 | `node scripts/verify-client.mjs` | Connects, prints chain info and block stats, benchmarks both endpoints |
 | `node scripts/measure-block-time.mjs [ms] [endpoint]` | Subscribes to new heads and reports measured block intervals |
 
+## 🔔 Heartbeat Alert Worker
+
+The dashboard stores a webhook URL in the browser, but a browser tab cannot alert you when your
+machine is asleep. `worker/heartbeat.mjs` is a standalone Node process that polls the chain and
+delivers real alerts.
+
+```bash
+cp worker.config.example.json worker.config.json   # then edit it
+npm run worker
+```
+
+You can also pass the webhook through the environment instead of the config file:
+
+```bash
+PORTAPULSE_WEBHOOK="https://discord.com/api/webhooks/..." npm run worker
+```
+
+### What it watches
+
+| Condition | Severity | Default threshold |
+| --- | --- | --- |
+| No new block for a while | critical | 180s |
+| Node reports it is still syncing | warning | — |
+| Peer count below the minimum | critical | 1 peer |
+| Finality lag grows too large | warning | 10 blocks |
+
+Alerts fire once when a condition opens, repeat on a cooldown while a critical condition persists,
+and send a recovery notice when it clears. Thresholds and the poll interval live in
+`worker.config.json`.
+
+### Delivery safety
+
+Webhook URLs are only accepted for a small allowlist of chat hosts (`discord.com`, `hooks.slack.com`)
+over HTTPS. Any other host is refused before a request is made, so a stray config value cannot be
+used to exfiltrate data. `worker.config.json` is gitignored because it holds a private URL.
+
+### Tests
+
+```bash
+npm test
+```
+
+Covers the alert rules, the open/repeat/recover lifecycle, webhook host validation and payload
+shape, and the poll loop's behaviour when delivery fails or no webhook is configured.
+
 ## 🏃 Getting Started Locally
 
 ```bash
@@ -117,7 +162,6 @@ A narrated walkthrough of the dashboard is available at
 
 ## 🗺️ Roadmap
 
-- Add a background heartbeat worker so webhook alerts are actually delivered, not just stored.
 - Add historical charts for block time and extrinsic counts.
 - Support Prometheus export for existing validator monitoring stacks.
 - Surface validator staking and slashing status once the Portaldot staking pallets are indexed.

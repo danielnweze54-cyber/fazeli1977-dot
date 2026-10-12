@@ -29,7 +29,7 @@ validators, developers, and infrastructure operators on the Portaldot network.
 - **Real-Time Telemetry:** Live monitoring of block height, peer counts, TPS, and consensus round state.
 - **Dynamic RPC Benchmark:** Low-latency testing and health status checks for both public and private RPC endpoints.
 - **Gas & Stress Simulator:** Interactive simulation of batch transfers, smart contract deployments, and heavy compute calls with real-time fee calculation.
-- **Automated Node Health Alerts:** Configurable Webhook heartbeat monitors to prevent validator slashing and monitor downtime.
+- **Automated Node Health Alerts:** A standalone worker process that polls the chain and delivers real Discord or Slack alerts on stalled block production, node desync, peer isolation, or runaway finality lag.
 
 ### Tech Stack
 
