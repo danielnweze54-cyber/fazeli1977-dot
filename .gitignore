@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Submission working directories (generated assets)
+submission/video-frames/
+submission/video/stage/
+submission/video/qa/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
