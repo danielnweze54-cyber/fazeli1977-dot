@@ -56,9 +56,34 @@ specifically for validator operators and node runners on the **Portaldot** netwo
 
 | Endpoint | Transport | Purpose |
 | --- | --- | --- |
-| `wss://testnet-rpc.portaldot.io` | WebSocket | Portaldot public testnet |
-| `https://rpc-v3.portaldot.network` | HTTP | Portaldot V3 RPC |
+| `wss://mainnet.portaldot.io` | WebSocket | Portaldot Mainnet (default) |
 | `ws://127.0.0.1:9944` | WebSocket | Local development node |
+
+Every metric is read live from the selected endpoint through `@polkadot/api`. Nothing is mocked:
+block height, peers, finality lag, extrinsic counts and block times all come from real RPC calls.
+
+### Live values observed against `wss://mainnet.portaldot.io`
+
+| Property | Value |
+| --- | --- |
+| Chain | Portaldot Mainnet |
+| Client | Portaldot Node 2.0.0 |
+| Runtime spec | 1002 |
+| Token | POT, 14 decimals |
+| SS58 prefix | 42 |
+| Block production | roughly one block per minute |
+
+Because Portaldot produces blocks slowly, the average block time card stays in a `Measuring…` state
+until at least two heads have been observed.
+
+## 🔬 Verification Scripts
+
+These scripts hit the live network and are useful for confirming results independently:
+
+| Script | Purpose |
+| --- | --- |
+| `node scripts/verify-client.mjs` | Connects, prints chain info and block stats, benchmarks both endpoints |
+| `node scripts/measure-block-time.mjs [ms] [endpoint]` | Subscribes to new heads and reports measured block intervals |
 
 ## 🏃 Getting Started Locally
 
@@ -92,10 +117,10 @@ A narrated walkthrough of the dashboard is available at
 
 ## 🗺️ Roadmap
 
-- Replace simulated telemetry with live `@polkadot/api` subscription data.
-- Persist webhook configuration and add Telegram delivery alongside Discord.
-- Add historical charts for block time and throughput.
+- Add a background heartbeat worker so webhook alerts are actually delivered, not just stored.
+- Add historical charts for block time and extrinsic counts.
 - Support Prometheus export for existing validator monitoring stacks.
+- Surface validator staking and slashing status once the Portaldot staking pallets are indexed.
 
 ## 🏆 Hacker House 2026
 

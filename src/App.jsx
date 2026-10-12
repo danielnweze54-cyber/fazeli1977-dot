@@ -1,85 +1,259 @@
-﻿import React, { useState, useEffect } from "react";
-import { 
-  Activity, 
-  Server, 
-  Cpu, 
-  Clock, 
-  ShieldCheck, 
-  RefreshCw, 
-  Send, 
-  Bell, 
-  Radio, 
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Activity,
+  AlertTriangle,
+  Bell,
+  CheckCircle2,
+  Clock,
+  Cpu,
   Flame,
-  CheckCircle2
+  Layers,
+  Radio,
+  RefreshCw,
+  Send,
+  Server,
+  ShieldCheck,
 } from "lucide-react";
+import {
+  DEFAULT_ENDPOINT_ID,
+  ENDPOINTS,
+  getEndpoint,
+} from "./lib/endpoints.js";
+
+const FINALITY_POLL_MS = 15000;
+const MAX_BLOCK_SAMPLES = 6;
+const WEBHOOK_STORAGE_KEY = "portapulse.webhook";
+
+function formatBlock(number) {
+  return number === null || number === undefined ? "—" : `#${number.toLocaleString("en-US")}`;
+}
+
+function formatBlockTime(samples) {
+  if (samples.length < 2) return null;
+  const sorted = [...samples].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  const filtered = samples.filter((value) => value <= median * 3);
+  if (filtered.length < 2) return null;
+  const mean = filtered.reduce((total, value) => total + value, 0) / filtered.length;
+  return mean;
+}
+
+function StatusPill({ status, chain }) {
+  const map = {
+    connecting: { text: "Connecting…", color: "text-amber-400", icon: Radio },
+    connected: { text: chain ? `Live: ${chain}` : "Connected", color: "text-[#00E599]", icon: Radio },
+    error: { text: "Connection failed", color: "text-rose-400", icon: AlertTriangle },
+    idle: { text: "Disconnected", color: "text-slate-400", icon: Radio },
+  };
+  const entry = map[status] ?? map.idle;
+  const Icon = entry.icon;
+  return (
+    <div className="flex items-center gap-2 bg-[#151A23] border border-slate-800 px-3 py-1.5 rounded-lg text-xs font-mono">
+      <Icon className={`w-3.5 h-3.5 ${entry.color} ${status === "connecting" ? "animate-pulse" : ""}`} />
+      <span className="max-w-[240px] truncate">{entry.text}</span>
+    </div>
+  );
+}
+
+function MetricCard({ label, icon, iconColor, value, valueColor, footnote, footnoteIcon }) {
+  const FootnoteIcon = footnoteIcon;
+  return (
+    <div className="bg-[#151A23] border border-slate-800/80 hover:border-slate-700 p-5 rounded-2xl transition">
+      <div className="flex items-center justify-between text-slate-400 text-xs mb-2">
+        <span>{label}</span>
+        <span className={iconColor}>{icon}</span>
+      </div>
+      <div className={`text-3xl font-extrabold font-mono tracking-wider ${valueColor ?? "text-white"}`}>
+        {value}
+      </div>
+      <div className="text-[11px] text-slate-400 mt-2 flex items-center gap-1 font-mono">
+        {FootnoteIcon ? <FootnoteIcon className="w-3 h-3" /> : null}
+        {footnote}
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
-  const [selectedRpc, setSelectedRpc] = useState("wss://testnet-rpc.portaldot.io");
-  const [isLive, setIsLive] = useState(true);
-  const [blockHeight, setBlockHeight] = useState(148292);
-  const [blockTime] = useState(3.2);
-  const [tps, setTps] = useState(14.8);
-  const [activePeers] = useState(34);
+  const [endpointId, setEndpointId] = useState(DEFAULT_ENDPOINT_ID);
+  const [status, setStatus] = useState("idle");
+  const [statusMessage, setStatusMessage] = useState("");
+  const [chainInfo, setChainInfo] = useState(null);
+  const [bestBlock, setBestBlock] = useState(null);
+  const [finalizedBlock, setFinalizedBlock] = useState(null);
+  const [blockSamples, setBlockSamples] = useState([]);
+  const [headStats, setHeadStats] = useState(null);
+  const [paused, setPaused] = useState(false);
+
   const [benchmarking, setBenchmarking] = useState(false);
-  const [latencies, setLatencies] = useState({
-    "wss://testnet-rpc.portaldot.io": 128,
-    "https://rpc-v3.portaldot.network": 94,
-    "ws://127.0.0.1:9944 (Local Dev)": 12,
-  });
+  const [benchmarks, setBenchmarks] = useState({});
 
   const [stressCount, setStressCount] = useState(10);
-  const [simulating, setSimulating] = useState(false);
-  const [simResults, setSimResults] = useState(null);
-  const [webhookUrl, setWebhookUrl] = useState("");
+  const [estimating, setEstimating] = useState(false);
+  const [estimate, setEstimate] = useState(null);
+
+  const [webhookUrl, setWebhookUrl] = useState(() => {
+    try {
+      return window.localStorage.getItem(WEBHOOK_STORAGE_KEY) ?? "";
+    } catch {
+      return "";
+    }
+  });
   const [webhookSaved, setWebhookSaved] = useState(false);
 
-  // Live block ticker simulation
+  const apiRef = useRef(null);
+  const unsubRef = useRef(null);
+  const lastHeadAtRef = useRef(null);
+  const pausedRef = useRef(paused);
+
   useEffect(() => {
-    if (!isLive) return;
-    const interval = setInterval(() => {
-      setBlockHeight((prev) => prev + 1);
-      setTps((12 + Math.random() * 6).toFixed(1));
-    }, 3200);
-    return () => clearInterval(interval);
-  }, [isLive]);
+    pausedRef.current = paused;
+  }, [paused]);
 
-  // Handle benchmark RPC check
-  const runBenchmark = () => {
+  const endpoint = getEndpoint(endpointId);
+
+  useEffect(() => {
+    let cancelled = false;
+    let pollTimer = null;
+
+    async function boot() {
+      setStatus("connecting");
+      setStatusMessage("");
+      setChainInfo(null);
+      setBestBlock(null);
+      setFinalizedBlock(null);
+      setBlockSamples([]);
+      setHeadStats(null);
+      lastHeadAtRef.current = null;
+
+      try {
+        const { connectApi, fetchChainInfo, fetchLatestBlockStats } = await import(
+          "./lib/portaldot.js"
+        );
+        const { api } = await connectApi(endpoint);
+        if (cancelled) {
+          await api.disconnect();
+          return;
+        }
+        apiRef.current = api;
+
+        const info = await fetchChainInfo(api);
+        if (cancelled) return;
+        setChainInfo(info);
+        setBestBlock(info.firstBlock);
+        setStatus("connected");
+
+        const stats = await fetchLatestBlockStats(api);
+        if (!cancelled) setHeadStats(stats);
+
+        unsubRef.current = await api.rpc.chain.subscribeNewHeads((header) => {
+          if (pausedRef.current) return;
+          const now = performance.now();
+          if (lastHeadAtRef.current !== null) {
+            const deltaSeconds = (now - lastHeadAtRef.current) / 1000;
+            setBlockSamples((previous) => [...previous, deltaSeconds].slice(-MAX_BLOCK_SAMPLES));
+          }
+          lastHeadAtRef.current = now;
+          setBestBlock(header.number.toNumber());
+        });
+
+        const pollFinalized = async () => {
+          if (cancelled || !apiRef.current) return;
+          try {
+            const [hash, signedBlock] = await Promise.all([
+              apiRef.current.rpc.chain.getFinalizedHead(),
+              apiRef.current.rpc.chain.getBlock(),
+            ]);
+            if (cancelled) return;
+            const finalizedHeader = await apiRef.current.rpc.chain.getHeader(hash);
+            if (cancelled) return;
+            setFinalizedBlock(finalizedHeader.number.toNumber());
+            setHeadStats({
+              number: signedBlock.block.header.number.toNumber(),
+              extrinsicCount: signedBlock.block.extrinsics.length,
+              sections: [],
+            });
+          } catch {
+            /* transient RPC error, retry on next tick */
+          }
+        };
+
+        await pollFinalized();
+        pollTimer = setInterval(pollFinalized, FINALITY_POLL_MS);
+      } catch (error) {
+        if (cancelled) return;
+        setStatus("error");
+        setStatusMessage(error instanceof Error ? error.message : String(error));
+      }
+    }
+
+    boot();
+
+    return () => {
+      cancelled = true;
+      if (pollTimer) clearInterval(pollTimer);
+      if (unsubRef.current) {
+        try {
+          unsubRef.current();
+        } catch {
+          /* ignore */
+        }
+        unsubRef.current = null;
+      }
+      if (apiRef.current) {
+        apiRef.current.disconnect().catch(() => {});
+        apiRef.current = null;
+      }
+    };
+  }, [endpoint]);
+
+  const runBenchmark = useCallback(async () => {
     setBenchmarking(true);
-    setTimeout(() => {
-      setLatencies({
-        "wss://testnet-rpc.portaldot.io": Math.floor(110 + Math.random() * 40),
-        "https://rpc-v3.portaldot.network": Math.floor(80 + Math.random() * 30),
-        "ws://127.0.0.1:9944 (Local Dev)": Math.floor(10 + Math.random() * 8),
+    try {
+      const { benchmarkEndpoint } = await import("./lib/portaldot.js");
+      const results = await Promise.all(ENDPOINTS.map((item) => benchmarkEndpoint(item)));
+      setBenchmarks((previous) => {
+        const next = { ...previous };
+        results.forEach((result) => {
+          next[result.endpointId] = result;
+        });
+        return next;
       });
+    } finally {
       setBenchmarking(false);
-    }, 900);
-  };
+    }
+  }, []);
 
-  // Handle Stress Simulation
-  const handleStressSimulation = () => {
-    setSimulating(true);
+  const averageBlockTime = formatBlockTime(blockSamples);
+  const finalityLag = bestBlock !== null && finalizedBlock !== null ? bestBlock - finalizedBlock : null;
+
+  const handleEstimate = (event) => {
+    event.preventDefault();
+    setEstimating(true);
     setTimeout(() => {
-      setSimulating(false);
-      setSimResults({
-        batchId: "tx_batch_" + Math.random().toString(36).substring(7),
-        gasBurned: (stressCount * 0.0021).toFixed(4) + " POT",
-        avgConfirmation: (blockTime * 0.95).toFixed(2) + "s",
-        status: "Confirmed on Portaldot V3",
+      setEstimating(false);
+      setEstimate({
+        txs: stressCount,
+        extrinsicsPerBlock: headStats?.extrinsicCount ?? null,
+        note: "Client-side model based on the observed extrinsic count and block time. Nothing is broadcast.",
       });
-    }, 1200);
+    }, 400);
   };
 
-  const handleSaveWebhook = (e) => {
-    e.preventDefault();
+  const handleSaveWebhook = (event) => {
+    event.preventDefault();
     if (!webhookUrl) return;
+    try {
+      window.localStorage.setItem(WEBHOOK_STORAGE_KEY, webhookUrl);
+    } catch {
+      /* storage unavailable */
+    }
     setWebhookSaved(true);
     setTimeout(() => setWebhookSaved(false), 3000);
   };
 
   return (
     <div className="min-h-screen bg-[#0B0E14] text-slate-100 p-4 md:p-8 font-sans selection:bg-[#00E599] selection:text-black">
-      {/* Top Navigation */}
       <header className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 pb-6 border-b border-slate-800">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-[#00E599] to-[#6366F1] flex items-center justify-center shadow-lg shadow-[#00E599]/20">
@@ -89,158 +263,186 @@ export default function App() {
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold tracking-tight text-white">PortaPulse</h1>
               <span className="text-xs bg-emerald-500/10 text-[#00E599] border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">
-                V3 Testnet
+                {chainInfo?.specVersion ? `Spec ${chainInfo.specVersion}` : "Portaldot"}
               </span>
             </div>
-            <p className="text-xs text-slate-400">Node Operations & Telemetry Suite for Portaldot</p>
+            <p className="text-xs text-slate-400">Node Operations &amp; Telemetry Suite for Portaldot</p>
           </div>
         </div>
 
-        {/* Live Status and RPC select */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 bg-[#151A23] border border-slate-800 px-3 py-1.5 rounded-lg text-xs font-mono">
-            <Radio className={`w-3.5 h-3.5 ${isLive ? "text-[#00E599] animate-pulse" : "text-amber-400"}`} />
-            <span>{isLive ? "Connected: Substrate + EVM" : "Paused"}</span>
-          </div>
+          <StatusPill status={status} chain={chainInfo?.chain} />
 
-          <select 
-            value={selectedRpc}
-            onChange={(e) => setSelectedRpc(e.target.value)}
+          <select
+            value={endpointId}
+            onChange={(event) => setEndpointId(event.target.value)}
             className="bg-[#151A23] border border-slate-800 text-xs text-slate-300 rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#00E599]"
           >
-            <option value="wss://testnet-rpc.portaldot.io">wss://testnet-rpc.portaldot.io</option>
-            <option value="https://rpc-v3.portaldot.network">https://rpc-v3.portaldot.network</option>
-            <option value="ws://127.0.0.1:9944">Local Dev Node (:9944)</option>
+            {ENDPOINTS.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.label}
+              </option>
+            ))}
           </select>
 
-          <button 
-            onClick={() => setIsLive(!isLive)}
+          <button
+            onClick={() => setPaused((value) => !value)}
             className="bg-[#151A23] hover:bg-slate-800 border border-slate-700 p-2 rounded-lg text-slate-300 transition"
-            title="Toggle Live Sync"
+            title={paused ? "Resume live updates" : "Pause live updates"}
           >
-            <RefreshCw className={`w-4 h-4 ${isLive ? "text-[#00E599]" : "text-slate-400"}`} />
+            <RefreshCw className={`w-4 h-4 ${paused ? "text-slate-400" : "text-[#00E599]"}`} />
           </button>
         </div>
       </header>
 
-      {/* Main Grid Content */}
       <main className="max-w-7xl mx-auto mt-8 space-y-8">
-        
-        {/* Metric Cards */}
+        {status === "error" && (
+          <div className="bg-rose-500/5 border border-rose-500/30 rounded-2xl p-4 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+            <div className="text-xs">
+              <div className="text-rose-300 font-semibold">Could not connect to {endpoint.label}</div>
+              <div className="text-slate-400 mt-1 font-mono">{statusMessage}</div>
+            </div>
+          </div>
+        )}
+
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-[#151A23] border border-slate-800/80 hover:border-slate-700 p-5 rounded-2xl transition">
-            <div className="flex items-center justify-between text-slate-400 text-xs mb-2">
-              <span>LATEST BLOCK</span>
-              <Server className="w-4 h-4 text-indigo-400" />
-            </div>
-            <div className="text-3xl font-extrabold font-mono text-white tracking-wider">
-              #{blockHeight.toLocaleString()}
-            </div>
-            <div className="text-[11px] text-emerald-400 mt-2 flex items-center gap-1 font-mono">
-              <CheckCircle2 className="w-3 h-3" /> 100% Finalized
-            </div>
-          </div>
+          <MetricCard
+            label="LATEST BLOCK"
+            icon={<Server className="w-4 h-4" />}
+            iconColor="text-indigo-400"
+            value={formatBlock(bestBlock)}
+            footnote={
+              finalityLag === null
+                ? "Awaiting finalized head"
+                : finalityLag === 0
+                  ? "Head is finalized"
+                  : `${finalityLag} block${finalityLag === 1 ? "" : "s"} behind finalized`
+            }
+            footnoteIcon={finalityLag === 0 ? CheckCircle2 : Clock}
+          />
 
-          <div className="bg-[#151A23] border border-slate-800/80 hover:border-slate-700 p-5 rounded-2xl transition">
-            <div className="flex items-center justify-between text-slate-400 text-xs mb-2">
-              <span>AVG BLOCK TIME</span>
-              <Clock className="w-4 h-4 text-emerald-400" />
-            </div>
-            <div className="text-3xl font-extrabold font-mono text-white tracking-wider">
-              {blockTime}s
-            </div>
-            <div className="text-[11px] text-slate-400 mt-2 font-mono">
-              Target: 3.0s | Deviation: ±0.2s
-            </div>
-          </div>
+          <MetricCard
+            label="AVG BLOCK TIME"
+            icon={<Clock className="w-4 h-4" />}
+            iconColor="text-emerald-400"
+            value={averageBlockTime === null ? "—" : `${averageBlockTime.toFixed(2)}s`}
+            footnote={
+              averageBlockTime === null
+                ? `Measuring… (${blockSamples.length}/${MAX_BLOCK_SAMPLES} samples)`
+                : `Measured from ${blockSamples.length} observed heads`
+            }
+            footnoteIcon={Activity}
+          />
 
-          <div className="bg-[#151A23] border border-slate-800/80 hover:border-slate-700 p-5 rounded-2xl transition">
-            <div className="flex items-center justify-between text-slate-400 text-xs mb-2">
-              <span>LIVE THROUGHPUT (TPS)</span>
-              <Flame className="w-4 h-4 text-amber-400" />
-            </div>
-            <div className="text-3xl font-extrabold font-mono text-[#00E599] tracking-wider">
-              {tps}
-            </div>
-            <div className="text-[11px] text-slate-400 mt-2 font-mono">
-              Peak: 84.2 TPS | Substrate Engine
-            </div>
-          </div>
+          <MetricCard
+            label="EXTRINSICS IN HEAD"
+            icon={<Layers className="w-4 h-4" />}
+            iconColor="text-amber-400"
+            value={headStats ? String(headStats.extrinsicCount) : "—"}
+            valueColor="text-[#00E599]"
+            footnote={headStats ? `Block ${formatBlock(headStats.number)}` : "Awaiting first block"}
+            footnoteIcon={Layers}
+          />
 
-          <div className="bg-[#151A23] border border-slate-800/80 hover:border-slate-700 p-5 rounded-2xl transition">
-            <div className="flex items-center justify-between text-slate-400 text-xs mb-2">
-              <span>ACTIVE PEERS / VALIDATORS</span>
-              <Cpu className="w-4 h-4 text-purple-400" />
-            </div>
-            <div className="text-3xl font-extrabold font-mono text-white tracking-wider">
-              {activePeers}
-            </div>
-            <div className="text-[11px] text-indigo-400 mt-2 flex items-center gap-1 font-mono">
-              <ShieldCheck className="w-3 h-3" /> Consensus Healthy
-            </div>
-          </div>
+          <MetricCard
+            label="ACTIVE PEERS"
+            icon={<Cpu className="w-4 h-4" />}
+            iconColor="text-purple-400"
+            value={chainInfo ? String(chainInfo.peers) : "—"}
+            footnote={
+              chainInfo
+                ? chainInfo.isSyncing
+                  ? "Node is syncing"
+                  : `Synced • ${chainInfo.tokenSymbol}`
+                : "Awaiting handshake"
+            }
+            footnoteIcon={ShieldCheck}
+          />
         </section>
 
-        {/* Feature Split: Latency Benchmark & Gas Simulator */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          {/* RPC Latency Benchmark */}
           <div className="bg-[#151A23] border border-slate-800 p-6 rounded-2xl">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                   <Activity className="w-5 h-5 text-[#00E599]" />
-                  Portaldot RPC Benchmark
+                  RPC Connection Benchmark
                 </h2>
-                <p className="text-xs text-slate-400 mt-0.5">Real-time WebSocket & HTTP latency checks</p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Measures a real WebSocket handshake plus one RPC round trip
+                </p>
               </div>
-              <button 
+              <button
                 onClick={runBenchmark}
                 disabled={benchmarking}
                 className="bg-emerald-500/10 hover:bg-emerald-500/20 text-[#00E599] border border-emerald-500/30 text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition disabled:opacity-50"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${benchmarking ? "animate-spin" : ""}`} />
-                {benchmarking ? "Testing..." : "Run Test"}
+                {benchmarking ? "Testing…" : "Run Test"}
               </button>
             </div>
 
             <div className="space-y-3 mt-4">
-              {Object.entries(latencies).map(([endpoint, ms]) => (
-                <div key={endpoint} className="bg-[#0B0E14] border border-slate-800/80 p-3.5 rounded-xl flex items-center justify-between">
-                  <div className="truncate max-w-[280px]">
-                    <div className="text-xs font-mono text-slate-200 truncate">{endpoint}</div>
-                    <div className="text-[10px] text-slate-500 uppercase mt-0.5">Portaldot Network V3</div>
+              {ENDPOINTS.map((item) => {
+                const result = benchmarks[item.id];
+                return (
+                  <div
+                    key={item.id}
+                    className="bg-[#0B0E14] border border-slate-800/80 p-3.5 rounded-xl flex items-center justify-between"
+                  >
+                    <div className="truncate max-w-[260px]">
+                      <div className="text-xs font-mono text-slate-200 truncate">{item.label}</div>
+                      <div className="text-[10px] text-slate-500 uppercase mt-0.5">
+                        {result?.ok ? result.chain : result ? result.error : "Not tested yet"}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-sm font-bold text-white">
+                        {result ? `${result.ms} ms` : "—"}
+                      </span>
+                      <span
+                        className={`w-2.5 h-2.5 rounded-full ${
+                          !result
+                            ? "bg-slate-600"
+                            : !result.ok
+                              ? "bg-rose-400"
+                              : result.ms < 1500
+                                ? "bg-emerald-400"
+                                : result.ms < 4000
+                                  ? "bg-amber-400"
+                                  : "bg-rose-400"
+                        }`}
+                      />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono text-sm font-bold text-white">{ms} ms</span>
-                    <span className={`w-2.5 h-2.5 rounded-full ${ms < 50 ? "bg-emerald-400" : ms < 150 ? "bg-amber-400" : "bg-rose-400"}`} />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
-          {/* Stress & Gas Simulator */}
           <div className="bg-[#151A23] border border-slate-800 p-6 rounded-2xl">
             <div>
               <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                 <Flame className="w-5 h-5 text-amber-400" />
-                Gas & Stress Simulator
+                Batch Load Planner
               </h2>
-              <p className="text-xs text-slate-400 mt-0.5">Test throughput and estimate gas fees on Portaldot V3</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Sizes a transaction batch against live observed head data
+              </p>
             </div>
 
             <div className="mt-5 space-y-4">
               <div>
-                <label className="text-xs text-slate-400 mb-1.5 block">Simulated Transaction Load</label>
+                <label className="text-xs text-slate-400 mb-1.5 block">Planned Transaction Load</label>
                 <div className="flex gap-2">
                   {[5, 10, 25, 50].map((num) => (
                     <button
                       key={num}
                       onClick={() => setStressCount(num)}
                       className={`flex-1 py-1.5 text-xs rounded-lg border font-mono transition ${
-                        stressCount === num 
-                          ? "bg-[#00E599]/10 border-[#00E599] text-[#00E599] font-bold" 
+                        stressCount === num
+                          ? "bg-[#00E599]/10 border-[#00E599] text-[#00E599] font-bold"
                           : "bg-[#0B0E14] border-slate-800 text-slate-400 hover:border-slate-700"
                       }`}
                     >
@@ -251,39 +453,54 @@ export default function App() {
               </div>
 
               <button
-                onClick={handleStressSimulation}
-                disabled={simulating}
+                onClick={handleEstimate}
+                disabled={estimating}
                 className="w-full bg-gradient-to-r from-[#00E599] to-[#6366F1] hover:opacity-90 text-black font-semibold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 transition disabled:opacity-50"
               >
                 <Send className="w-4 h-4 text-black" />
-                {simulating ? "Executing Test Load..." : `Simulate Batch of ${stressCount} Txs`}
+                {estimating ? "Planning…" : `Plan Batch of ${stressCount} Txs`}
               </button>
 
-              {simResults && (
+              {estimate && (
                 <div className="bg-[#0B0E14] border border-emerald-500/20 p-4 rounded-xl text-xs space-y-1.5 font-mono">
                   <div className="text-[#00E599] font-semibold flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4" /> Batch Execution Finished
+                    <CheckCircle2 className="w-4 h-4" /> Plan Ready
                   </div>
-                  <div className="text-slate-400">Batch ID: <span className="text-slate-200">{simResults.batchId}</span></div>
-                  <div className="text-slate-400">Total Gas Burned: <span className="text-slate-200">{simResults.gasBurned}</span></div>
-                  <div className="text-slate-400">Avg Finality: <span className="text-slate-200">{simResults.avgConfirmation}</span></div>
+                  <div className="text-slate-400">
+                    Planned: <span className="text-slate-200">{estimate.txs} transactions</span>
+                  </div>
+                  <div className="text-slate-400">
+                    Observed head size:{" "}
+                    <span className="text-slate-200">
+                      {estimate.extrinsicsPerBlock === null
+                        ? "unavailable"
+                        : `${estimate.extrinsicsPerBlock} extrinsic${estimate.extrinsicsPerBlock === 1 ? "" : "s"}`}
+                    </span>
+                  </div>
+                  <div className="text-slate-400">
+                    Est. blocks to clear:{" "}
+                    <span className="text-slate-200">
+                      {estimate.extrinsicsPerBlock
+                        ? Math.ceil(estimate.txs / estimate.extrinsicsPerBlock)
+                        : "—"}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-500 pt-1 leading-relaxed">{estimate.note}</div>
                 </div>
               )}
             </div>
           </div>
-
         </section>
 
-        {/* Telegram / Discord Alert Settings */}
         <section className="bg-[#151A23] border border-slate-800 p-6 rounded-2xl">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                 <Bell className="w-5 h-5 text-indigo-400" />
-                Validator & Node Heartbeat Alert
+                Validator &amp; Node Heartbeat Alert
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                Receive instant notifications if block production slows down or your node loses sync.
+                Stores a webhook endpoint locally for a heartbeat worker to deliver downtime alerts.
               </p>
             </div>
 
@@ -292,7 +509,7 @@ export default function App() {
                 type="text"
                 placeholder="https://discord.com/api/webhooks/..."
                 value={webhookUrl}
-                onChange={(e) => setWebhookUrl(e.target.value)}
+                onChange={(event) => setWebhookUrl(event.target.value)}
                 className="bg-[#0B0E14] border border-slate-800 text-xs text-slate-200 px-3.5 py-2 rounded-xl focus:outline-none focus:border-[#00E599] w-full md:w-80"
               />
               <button
@@ -305,17 +522,41 @@ export default function App() {
           </div>
           {webhookSaved && (
             <div className="mt-3 text-xs text-[#00E599] flex items-center gap-1.5 font-mono">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Webhook endpoint saved for heartbeat triggers.
+              <CheckCircle2 className="w-3.5 h-3.5" /> Webhook endpoint saved in this browser.
             </div>
           )}
+          <div className="mt-3 text-[11px] text-slate-500 font-mono">
+            Delivery requires a background worker; this dashboard only persists the endpoint locally.
+          </div>
         </section>
 
+        <section className="bg-[#151A23] border border-slate-800 p-6 rounded-2xl">
+          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-emerald-400" />
+            Chain Details
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4 text-xs font-mono">
+            {[
+              ["Chain", chainInfo?.chain],
+              ["Client", chainInfo?.client],
+              ["Runtime spec", chainInfo?.specVersion],
+              ["Token", chainInfo ? `${chainInfo.tokenSymbol} (${chainInfo.tokenDecimals} decimals)` : null],
+              ["SS58 prefix", chainInfo?.ss58Format],
+              ["Finalized head", finalizedBlock === null ? null : formatBlock(finalizedBlock)],
+            ].map(([label, value]) => (
+              <div key={label} className="bg-[#0B0E14] border border-slate-800/80 p-3.5 rounded-xl">
+                <div className="text-[10px] text-slate-500 uppercase">{label}</div>
+                <div className="text-slate-200 mt-1 truncate">{value ?? "—"}</div>
+              </div>
+            ))}
+          </div>
+        </section>
       </main>
 
-      {/* Footer */}
       <footer className="max-w-7xl mx-auto mt-12 pt-6 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-3">
-        <div>Built for Portaldot Hacker House 2026 • Track 3 (Node Operations & Tooling)</div>
+        <div>Built for Portaldot Hacker House 2026 • Track 3 (Node Operations &amp; Tooling)</div>
         <div className="flex items-center gap-4">
+          <span className="font-mono">Live data via @polkadot/api</span>
           <span className="font-mono">Open Source (MIT)</span>
         </div>
       </footer>
