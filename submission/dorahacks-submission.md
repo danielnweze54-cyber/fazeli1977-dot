@@ -15,6 +15,7 @@ Final deadline / code freeze: 2026-11-06 04:00 UTC
 | GitHub Repository URL | https://github.com/naomi197/portapulse |
 | Demo URL / Website | https://naomi197.github.io/portapulse/ |
 | Project Media | `submission/portapulse-dashboard.png` |
+| Pitch Deck | `submission/portapulse-pitch-deck.pptx` |
 | Wallet Address | `0xf3ddb743b4f1BD8b59Bf5Bf22905555Fe5c4B7C1` |
 
 ## Detailed Description / Pitch
@@ -46,6 +47,10 @@ with 14 decimals, SS58 prefix `42`, and roughly one block produced per minute.
 ## Open Items Before Final Submission
 
 - Demo video is recorded: `submission/portapulse-demo.mp4` (63 seconds, 1080p, narrated).
+- Pitch deck is prepared: `submission/portapulse-pitch-deck.pptx` (8 slides: problem, solution,
+  live-data evidence, alerting, why Portaldot, status, and the ask).
+- Deployment instructions are documented in the README, including a GitHub Pages workflow
+  (`.github/workflows/deploy.yml`) and `npm run deploy`.
 - Portaldot testnet deployment info (contract address / transaction hash / explorer link) is not
   available yet. The dashboard is a read-only monitoring client, so it holds no contract of its own.
 - Repository must keep at least 3 valid commits inside the event window (Oct 14 – Nov 6).

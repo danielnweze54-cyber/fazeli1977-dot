@@ -154,6 +154,37 @@ npm run preview
 | `npm run build` | Build for production into `dist/` |
 | `npm run preview` | Preview the production build |
 | `npm run lint` | Run `oxlint` |
+| `npm run test` | Run the worker alert-rule test suite |
+| `npm run verify` | Connect to the network and print chain and block stats |
+| `npm run worker` | Start the standalone heartbeat alert worker |
+| `npm run deploy` | Build and publish `dist/` to GitHub Pages |
+
+## 🚀 Deployment
+
+PortaPulse is a static Vite build, so it runs on any static host. The public demo at
+https://naomi197.github.io/portapulse/ is served from the `dist/` output.
+
+### GitHub Pages (the live site)
+
+`vite.config.js` sets `base: '/portapulse/'` so the build resolves assets correctly under the
+repository subpath. Publish manually with the bundled `gh-pages` tooling:
+
+```bash
+npm ci
+npm run deploy
+```
+
+### Continuous deployment
+
+`.github/workflows/deploy.yml` builds and publishes the site on every push to `master`, and can
+also be started by hand from the Actions tab. Enable it once under
+**Settings → Pages → Build and deployment → Source: GitHub Actions**.
+
+### Other static hosts
+
+Netlify, Vercel, Cloudflare Pages, or a plain nginx directory all work. Run `npm run build` and
+serve `dist/`. When the site is hosted at a domain root instead of a subpath, set `base` in
+`vite.config.js` to `/`.
 
 ## 🎬 Demo
 

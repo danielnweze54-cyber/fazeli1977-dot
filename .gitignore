@@ -21,6 +21,9 @@ submission/video/qa2/
 # Local worker configuration may contain a private webhook URL
 worker.config.json
 
+# Scratch working directory (deck builders, renders, QA output)
+tmp/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
