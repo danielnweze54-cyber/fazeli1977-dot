@@ -2,7 +2,7 @@
 
 Hackathon: Portaldot Hacker House 2026
 Page: https://dorahacks.io/hackathon/portaldot-hacker-house-2026/detail
-Submission window opens: 2026-10-13 19:30 (Asia/Tehran) = 12:00 UTC
+Submission window opens: 2026-10-13 19:30 (Asia/Tehran) = 16:00 UTC
 Final deadline / code freeze: 2026-11-06 04:00 UTC
 
 ## Form Fields
@@ -12,8 +12,8 @@ Final deadline / code freeze: 2026-11-06 04:00 UTC
 | Project Name | PortaPulse |
 | Tagline | High-Performance Node Operations & Real-Time Telemetry Suite for Portaldot |
 | Track | Track 3: Node Operations & Tooling |
-| GitHub Repository URL | https://github.com/naomi197/portapulse |
-| Demo URL / Website | https://naomi197.github.io/portapulse/ |
+| GitHub Repository URL | https://github.com/fazeli1977-dot/portapulse |
+| Demo URL / Website | https://fazeli1977-dot.github.io/portapulse/ |
 | Project Media | `submission/portapulse-dashboard.png` |
 | Pitch Deck | `submission/portapulse-pitch-deck.pptx` |
 | Wallet Address | `0xf3ddb743b4f1BD8b59Bf5Bf22905555Fe5c4B7C1` |

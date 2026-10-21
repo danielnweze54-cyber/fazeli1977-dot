@@ -3,14 +3,14 @@
 ### Node Operations & Telemetry Suite for Portaldot V3
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-00E599.svg)](LICENSE)
-[![Live Demo](https://img.shields.io/badge/demo-live-6366F1.svg)](https://naomi197.github.io/portapulse/)
+[![Live Demo](https://img.shields.io/badge/demo-live-6366F1.svg)](https://fazeli1977-dot.github.io/portapulse/)
 [![React 19](https://img.shields.io/badge/React-19-61DAFB.svg)](https://react.dev/)
 [![Built for Portaldot Hacker House 2026](https://img.shields.io/badge/Portaldot-Hacker%20House%202026-0B0E14.svg)](#-hacker-house-2026)
 
 PortaPulse is a high-performance telemetry, RPC benchmarking, and gas stress-testing suite designed
 specifically for validator operators and node runners on the **Portaldot** network.
 
-**Live demo:** https://naomi197.github.io/portapulse/
+**Live demo:** https://fazeli1977-dot.github.io/portapulse/
 
 ## 🚀 Key Features
 
@@ -133,7 +133,7 @@ shape, and the poll loop's behaviour when delivery fails or no webhook is config
 ## 🏃 Getting Started Locally
 
 ```bash
-git clone https://github.com/naomi197/portapulse.git
+git clone https://github.com/fazeli1977-dot/portapulse.git
 cd portapulse
 npm install
 npm run dev
@@ -162,7 +162,7 @@ npm run preview
 ## 🚀 Deployment
 
 PortaPulse is a static Vite build, so it runs on any static host. The public demo at
-https://naomi197.github.io/portapulse/ is served from the `dist/` output.
+https://fazeli1977-dot.github.io/portapulse/ is served from the `dist/` output.
 
 ### GitHub Pages (the live site)
 
