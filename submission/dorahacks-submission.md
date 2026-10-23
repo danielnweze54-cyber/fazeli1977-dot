@@ -17,7 +17,7 @@ Final deadline / code freeze: 2026-11-06 04:00 UTC
 | Project Media | `submission/portapulse-dashboard.png` |
 | Pitch Deck | `submission/portapulse-pitch-deck.pptx` |
 | EVM Wallet Address (DoraHacks registration) | `0xf3ddb743b4f1BD8b59Bf5Bf22905555Fe5c4B7C1` |
-| Native POT Wallet Address (test-token distribution) | Confirm whether already submitted; otherwise provide the registered SS58 address starting with `5` to an organizer |
+| Native POT Wallet Address (test-token distribution) | `5HGm2p9yU6PAJXveA6Vv7yeqQkM4bq1YhpYZUGn3dxP2Jf3Z` (SS58; sent to Stella on DoraHacks) |
 
 ## Detailed Description / Pitch
 
@@ -48,9 +48,10 @@ uses Substrate RPC for telemetry and provides MetaMask-compatible EVM wallet con
 deployment, and a separate signed proof transaction.
 
 For tPOT distribution, the organizers require a **native Portaldot SS58 wallet address beginning
-with `5`**, not an EVM address beginning with `0x`. Confirm whether the native address was included
-in registration; if not, register a native wallet via the official Portaldot Wallet and contact an
-organizer through the announced support channel. Never share a seed phrase or private key.
+with `5`**, not an EVM address beginning with `0x`. The address above was sent to Stella on
+DoraHacks, who acknowledged the message with “OK.” A live read from the Portaldot V3 Testnet
+reported a free balance of `0 tPOT` at the time checked (2026-10-23); token distribution and EVM
+gas funding are not yet confirmed. Never share a seed phrase or private key.
 
 ## Open Items Before Final Submission
 
@@ -61,8 +62,8 @@ organizer through the announced support channel. Never share a seed phrase or pr
   (`.github/workflows/deploy.yml`) and `npm run deploy`.
 - Wallet connection, testnet contract deployment, and a separate signed proof transaction are
   implemented in the dashboard. **Actual deployment and transaction proof remain pending wallet
-  access, user approvals, and sufficient EVM testnet gas.** A static website deployment alone does
-  not meet the on-chain requirement.
+  access, user approvals, and sufficient EVM testnet gas.** The submitted native SS58 address
+  currently has `0 tPOT`; a static website deployment alone does not meet the on-chain requirement.
 - Add the actual deployed contract address, deployment transaction hash, pulse transaction hash,
   and node-explorer verification here and in the DoraHacks submission after confirming both receipts.
 - Watch the organizers' Discord announcements for the ecosystem-support application requirements
