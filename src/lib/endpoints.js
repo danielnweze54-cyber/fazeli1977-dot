@@ -1,5 +1,11 @@
 export const ENDPOINTS = [
   {
+    id: "portaldot-testnet",
+    label: "wss://test-node-v3.portaldot.dev",
+    ws: "wss://test-node-v3.portaldot.dev",
+    network: "Portaldot V3 Testnet",
+  },
+  {
     id: "portaldot-mainnet",
     label: "wss://mainnet.portaldot.io",
     ws: "wss://mainnet.portaldot.io",
@@ -12,6 +18,12 @@ export const ENDPOINTS = [
     network: "Local Development Node",
   },
 ];
+
+export const PORTALDOT_TESTNET = {
+  evmRpc: "https://test-evm-rpc-v3.portaldot.dev",
+  chainId: 420420777,
+  explorer: "https://node-console.portaldot.dev/",
+};
 
 export const DEFAULT_ENDPOINT_ID = ENDPOINTS[0].id;
 

@@ -13,16 +13,29 @@ import {
   Send,
   Server,
   ShieldCheck,
+  Wallet,
 } from "lucide-react";
 import {
   DEFAULT_ENDPOINT_ID,
   ENDPOINTS,
   getEndpoint,
+  PORTALDOT_TESTNET,
 } from "./lib/endpoints.js";
+import {
+  deployProofContract,
+  ensurePortaldotTestnet,
+  getInjectedWallet,
+  sendProofTransaction,
+} from "./lib/evm-wallet.js";
+import {
+  PORTAPULSE_PROOF_BYTECODE,
+  PORTAPULSE_PULSE_CALLDATA,
+} from "./lib/portapulse-contract.js";
 
 const FINALITY_POLL_MS = 15000;
 const MAX_BLOCK_SAMPLES = 6;
 const WEBHOOK_STORAGE_KEY = "portapulse.webhook";
+const PROOF_STORAGE_KEY = "portapulse.evmProof";
 
 function formatBlock(number) {
   return number === null || number === undefined ? "—" : `#${number.toLocaleString("en-US")}`;
@@ -100,6 +113,16 @@ export default function App() {
     }
   });
   const [webhookSaved, setWebhookSaved] = useState(false);
+  const [walletAccount, setWalletAccount] = useState(null);
+  const [walletBusy, setWalletBusy] = useState(false);
+  const [walletMessage, setWalletMessage] = useState("");
+  const [proof, setProof] = useState(() => {
+    try {
+      return JSON.parse(window.localStorage.getItem(PROOF_STORAGE_KEY) ?? "null");
+    } catch {
+      return null;
+    }
+  });
 
   const apiRef = useRef(null);
   const unsubRef = useRef(null);
@@ -109,6 +132,16 @@ export default function App() {
   useEffect(() => {
     pausedRef.current = paused;
   }, [paused]);
+
+  useEffect(() => {
+    const wallet = getInjectedWallet();
+    if (!wallet?.on) return undefined;
+    const handleAccountsChanged = (accounts) => {
+      setWalletAccount(Array.isArray(accounts) && typeof accounts[0] === "string" ? accounts[0] : null);
+    };
+    wallet.on("accountsChanged", handleAccountsChanged);
+    return () => wallet.removeListener?.("accountsChanged", handleAccountsChanged);
+  }, []);
 
   const endpoint = getEndpoint(endpointId);
 
@@ -250,6 +283,99 @@ export default function App() {
     }
     setWebhookSaved(true);
     setTimeout(() => setWebhookSaved(false), 3000);
+  };
+
+  const handleConnectWallet = async () => {
+    setWalletMessage("");
+    const wallet = getInjectedWallet();
+    if (!wallet) {
+      setWalletMessage("No injected EVM wallet was found. Install or unlock MetaMask, then retry.");
+      return;
+    }
+
+    setWalletBusy(true);
+    try {
+      const accounts = await wallet.request({ method: "eth_requestAccounts" });
+      if (!Array.isArray(accounts) || typeof accounts[0] !== "string") {
+        throw new Error("The wallet did not return an account.");
+      }
+      setWalletAccount(accounts[0]);
+      await ensurePortaldotTestnet(wallet);
+      setWalletMessage("Wallet connected to Portaldot V3 Testnet.");
+    } catch (error) {
+      setWalletMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setWalletBusy(false);
+    }
+  };
+
+  const handleDeployProof = async () => {
+    setWalletMessage("");
+    const wallet = getInjectedWallet();
+    if (!wallet || !walletAccount) {
+      setWalletMessage("Connect your wallet before deploying the proof contract.");
+      return;
+    }
+
+    setWalletBusy(true);
+    try {
+      const deployment = await deployProofContract(
+        wallet,
+        walletAccount,
+        PORTAPULSE_PROOF_BYTECODE,
+      );
+      const nextProof = { ...deployment, owner: walletAccount, pulseTxHash: null };
+      setProof(nextProof);
+      try {
+        window.localStorage.setItem(PROOF_STORAGE_KEY, JSON.stringify(nextProof));
+      } catch {
+        setWalletMessage(
+          `Deployment confirmed. Copy the contract address ${deployment.contractAddress} and transaction ${deployment.hash}; browser storage is unavailable.`,
+        );
+        return;
+      }
+      setWalletMessage("Contract deployed and confirmed on Portaldot V3 Testnet.");
+    } catch (error) {
+      setWalletMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setWalletBusy(false);
+    }
+  };
+
+  const handleSendProof = async () => {
+    setWalletMessage("");
+    const wallet = getInjectedWallet();
+    if (!wallet || !walletAccount || !proof?.contractAddress) {
+      setWalletMessage("Connect your wallet and deploy the proof contract first.");
+      return;
+    }
+    if (proof.owner.toLowerCase() !== walletAccount.toLowerCase()) {
+      setWalletMessage("Reconnect the wallet that deployed this contract to send its proof transaction.");
+      return;
+    }
+
+    setWalletBusy(true);
+    try {
+      const hash = await sendProofTransaction(
+        wallet,
+        walletAccount,
+        proof.contractAddress,
+        PORTAPULSE_PULSE_CALLDATA,
+      );
+      const nextProof = { ...proof, pulseTxHash: hash };
+      setProof(nextProof);
+      try {
+        window.localStorage.setItem(PROOF_STORAGE_KEY, JSON.stringify(nextProof));
+      } catch {
+        setWalletMessage(`Pulse transaction confirmed. Copy the transaction hash ${hash}; browser storage is unavailable.`);
+        return;
+      }
+      setWalletMessage("Pulse transaction confirmed on Portaldot V3 Testnet.");
+    } catch (error) {
+      setWalletMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setWalletBusy(false);
+    }
   };
 
   return (
@@ -493,6 +619,76 @@ export default function App() {
         </section>
 
         <section className="bg-[#151A23] border border-slate-800 p-6 rounded-2xl">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                <Wallet className="w-5 h-5 text-[#00E599]" />
+                Testnet Wallet &amp; On-chain Proof
+              </h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Connect MetaMask, deploy the PortaPulse proof contract, then submit a signed pulse transaction.
+                No private key is requested or stored.
+              </p>
+            </div>
+            <button
+              onClick={handleConnectWallet}
+              disabled={walletBusy}
+              className="shrink-0 bg-emerald-500/10 hover:bg-emerald-500/20 text-[#00E599] border border-emerald-500/30 text-xs font-semibold px-4 py-2 rounded-lg transition disabled:opacity-50"
+            >
+              {walletBusy ? "Waiting for wallet…" : walletAccount
+                ? `${walletAccount.slice(0, 6)}…${walletAccount.slice(-4)}`
+                : "Connect MetaMask"}
+            </button>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <button
+              onClick={handleDeployProof}
+              disabled={walletBusy || !walletAccount || Boolean(proof?.contractAddress)}
+              className="bg-[#0B0E14] border border-slate-800 hover:border-[#00E599]/60 rounded-xl p-4 text-left transition disabled:opacity-50"
+            >
+              <span className="block text-xs font-semibold text-slate-200">1. Deploy proof contract</span>
+              <span className="block text-[11px] text-slate-500 mt-1">
+                Requires a wallet confirmation and testnet gas.
+              </span>
+            </button>
+            <button
+              onClick={handleSendProof}
+              disabled={walletBusy || !walletAccount || !proof?.contractAddress || Boolean(proof?.pulseTxHash)}
+              className="bg-[#0B0E14] border border-slate-800 hover:border-[#00E599]/60 rounded-xl p-4 text-left transition disabled:opacity-50"
+            >
+              <span className="block text-xs font-semibold text-slate-200">2. Send on-chain pulse</span>
+              <span className="block text-[11px] text-slate-500 mt-1">
+                A separate signed transaction records the demo interaction.
+              </span>
+            </button>
+          </div>
+
+          {proof?.contractAddress && (
+            <div className="mt-4 space-y-2 rounded-xl border border-slate-800/80 bg-[#0B0E14] p-3.5 text-xs font-mono">
+              <div className="break-all text-slate-300">Contract: {proof.contractAddress}</div>
+              <div className="break-all text-slate-500">Deployment tx: {proof.hash}</div>
+              {proof.pulseTxHash && (
+                <div className="break-all text-slate-500">Pulse tx: {proof.pulseTxHash}</div>
+              )}
+              <a
+                className="inline-block text-[#00E599] hover:underline"
+                href={PORTALDOT_TESTNET.explorer}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Verify on Node Explorer
+              </a>
+            </div>
+          )}
+          {walletMessage && (
+            <div className="mt-3 text-xs text-slate-300" role="status" aria-live="polite">
+              {walletMessage}
+            </div>
+          )}
+        </section>
+
+        <section className="bg-[#151A23] border border-slate-800 p-6 rounded-2xl">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h2 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -549,6 +745,28 @@ export default function App() {
                 <div className="text-slate-200 mt-1 truncate">{value ?? "—"}</div>
               </div>
             ))}
+          </div>
+          <div className="mt-4 rounded-xl border border-slate-800/80 bg-[#0B0E14] p-3.5 text-xs font-mono">
+            <div className="text-[10px] text-slate-500 uppercase">Portaldot V3 Testnet · EVM</div>
+            <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2 text-slate-300">
+              <span>Chain ID: {PORTALDOT_TESTNET.chainId}</span>
+              <a
+                className="break-all text-[#00E599] hover:underline"
+                href={PORTALDOT_TESTNET.evmRpc}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {PORTALDOT_TESTNET.evmRpc}
+              </a>
+              <a
+                className="text-[#00E599] hover:underline"
+                href={PORTALDOT_TESTNET.explorer}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Node Explorer
+              </a>
+            </div>
           </div>
         </section>
       </main>

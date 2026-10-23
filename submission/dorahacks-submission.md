@@ -16,7 +16,8 @@ Final deadline / code freeze: 2026-11-06 04:00 UTC
 | Demo URL / Website | https://fazeli1977-dot.github.io/portapulse/ |
 | Project Media | `submission/portapulse-dashboard.png` |
 | Pitch Deck | `submission/portapulse-pitch-deck.pptx` |
-| Wallet Address | `0xf3ddb743b4f1BD8b59Bf5Bf22905555Fe5c4B7C1` |
+| EVM Wallet Address (DoraHacks registration) | `0xf3ddb743b4f1BD8b59Bf5Bf22905555Fe5c4B7C1` |
+| Native POT Wallet Address (test-token distribution) | Confirm whether already submitted; otherwise provide the registered SS58 address starting with `5` to an organizer |
 
 ## Detailed Description / Pitch
 
@@ -39,10 +40,17 @@ ready for production deployment.
 
 ### Live Data
 
-PortaPulse reads directly from `wss://mainnet.portaldot.io`. Block height, finalized head, finality
-lag, peer count, extrinsic counts and block times are real RPC values, not mocked figures.
-Observed against Portaldot Mainnet: client `Portaldot Node 2.0.0`, runtime spec `1002`, token `POT`
-with 14 decimals, SS58 prefix `42`, and roughly one block produced per minute.
+PortaPulse defaults to the updated Portaldot V3 Testnet WebSocket endpoint,
+`wss://test-node-v3.portaldot.dev`. Block height, finalized head, finality lag, peer count,
+extrinsic counts and block times are fetched from live RPC calls, not mocked figures. The announced
+EVM endpoint is `https://test-evm-rpc-v3.portaldot.dev` with chain ID `420420777`; the dashboard
+uses Substrate RPC for telemetry and provides MetaMask-compatible EVM wallet connection, contract
+deployment, and a separate signed proof transaction.
+
+For tPOT distribution, the organizers require a **native Portaldot SS58 wallet address beginning
+with `5`**, not an EVM address beginning with `0x`. Confirm whether the native address was included
+in registration; if not, register a native wallet via the official Portaldot Wallet and contact an
+organizer through the announced support channel. Never share a seed phrase or private key.
 
 ## Open Items Before Final Submission
 
@@ -51,7 +59,13 @@ with 14 decimals, SS58 prefix `42`, and roughly one block produced per minute.
   live-data evidence, alerting, why Portaldot, status, and the ask).
 - Deployment instructions are documented in the README, including a GitHub Pages workflow
   (`.github/workflows/deploy.yml`) and `npm run deploy`.
-- Portaldot testnet deployment info (contract address / transaction hash / explorer link) is not
-  available yet. The dashboard is a read-only monitoring client, so it holds no contract of its own.
+- Wallet connection, testnet contract deployment, and a separate signed proof transaction are
+  implemented in the dashboard. **Actual deployment and transaction proof remain pending wallet
+  access, user approvals, and sufficient EVM testnet gas.** A static website deployment alone does
+  not meet the on-chain requirement.
+- Add the actual deployed contract address, deployment transaction hash, pulse transaction hash,
+  and node-explorer verification here and in the DoraHacks submission after confirming both receipts.
+- Watch the organizers' Discord announcements for the ecosystem-support application requirements
+  and develop the demo into a commercial-ready project after the hackathon.
 - Repository must keep at least 3 valid commits inside the event window (Oct 14 – Nov 6).
   Current commits are dated 2026-10-12, one day before the window opens.

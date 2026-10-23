@@ -11,7 +11,7 @@ const CONFIG_PATH = resolve(process.cwd(), "worker.config.json");
 
 function loadConfig() {
   const defaults = {
-    endpoint: "wss://mainnet.portaldot.io",
+    endpoint: "wss://test-node-v3.portaldot.dev",
     webhookUrl: process.env.PORTAPULSE_WEBHOOK ?? "",
     pollMs: 20000,
     thresholds: DEFAULT_THRESHOLDS,

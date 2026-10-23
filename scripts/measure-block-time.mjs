@@ -4,7 +4,7 @@ const require = createRequire(import.meta.url);
 const WebSocketImpl = require("ws");
 
 const OBSERVE_MS = Number(process.argv[2] ?? 180000);
-const ENDPOINT = process.argv[3] ?? "wss://mainnet.portaldot.io";
+const ENDPOINT = process.argv[3] ?? "wss://test-node-v3.portaldot.dev";
 
 const ws = new WebSocketImpl(ENDPOINT);
 const heads = [];

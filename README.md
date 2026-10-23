@@ -26,7 +26,7 @@ specifically for validator operators and node runners on the **Portaldot** netwo
 | UI | React 19, Tailwind CSS |
 | Build | Vite 8 |
 | Icons | Lucide React |
-| Network | Substrate / EVM via `@polkadot/api` |
+| Network | Portaldot Substrate RPC via `@polkadot/api` |
 
 ## 🏗️ Architecture
 
@@ -56,22 +56,44 @@ specifically for validator operators and node runners on the **Portaldot** netwo
 
 | Endpoint | Transport | Purpose |
 | --- | --- | --- |
-| `wss://mainnet.portaldot.io` | WebSocket | Portaldot Mainnet (default) |
+| `wss://test-node-v3.portaldot.dev` | WebSocket | Portaldot V3 Testnet (default) |
+| `wss://mainnet.portaldot.io` | WebSocket | Portaldot Mainnet |
 | `ws://127.0.0.1:9944` | WebSocket | Local development node |
 
 Every metric is read live from the selected endpoint through `@polkadot/api`. Nothing is mocked:
 block height, peers, finality lag, extrinsic counts and block times all come from real RPC calls.
 
-### Live values observed against `wss://mainnet.portaldot.io`
+The separately provided EVM endpoint is `https://test-evm-rpc-v3.portaldot.dev` (chain ID
+`420420777`). Dashboard telemetry and benchmarks use the WebSocket/Substrate RPC. The EVM panel
+connects to an injected browser wallet and offers a small proof-contract deployment and a separate
+signed `pulse()` transaction on the testnet.
 
-| Property | Value |
-| --- | --- |
-| Chain | Portaldot Mainnet |
-| Client | Portaldot Node 2.0.0 |
-| Runtime spec | 1002 |
-| Token | POT, 14 decimals |
-| SS58 prefix | 42 |
-| Block production | roughly one block per minute |
+### Wallet, contract deployment, and transaction proof
+
+1. Install/unlock MetaMask (or another compatible injected EVM wallet) and connect an account.
+   PortaPulse requests Portaldot V3 Testnet (chain ID `420420777`) and asks the wallet to add or
+   switch networks when necessary.
+2. Ensure the connected EVM account has testnet gas funds. Organizers' tPOT registration requests
+   a **native SS58 address starting with `5`**; that is not the EVM address MetaMask shows. If the
+   connected EVM account is unfunded, ask an organizer how EVM testnet gas is supplied rather than
+   assuming the native SS58 address is interchangeable.
+3. Select **Deploy proof contract** and approve the deployment in the wallet. After the deployment
+   receipt is confirmed, the contract address and deployment transaction hash are saved in this
+   browser's local storage.
+4. Select **Send on-chain pulse** and approve that separate transaction. Its confirmed transaction
+   hash is also saved and can be checked via the node explorer.
+
+The contract records a count and emits a `Pulse` event. The app never asks for or stores a seed
+phrase/private key; account access and signing stay inside the wallet. Browser-local saved proof
+details are not automatically uploaded to DoraHacks: add the actual contract address, both
+transaction hashes, and explorer evidence to the submission after confirming them on-chain.
+Generating the app or publishing the GitHub Pages site does **not** itself deploy the contract.
+
+The Portaldot V3 node explorer is <https://node-console.portaldot.dev/>. For test-token
+distribution, the team requests a **native Portaldot SS58 address starting with `5`**, not an EVM
+address starting with `0x`. If you have not already submitted one, follow the organizers'
+instructions to register a native wallet and contact an administrator through the announced
+support channel. Never share a seed phrase or private key.
 
 Because Portaldot produces blocks slowly, the average block time card stays in a `Measuring…` state
 until at least two heads have been observed.
@@ -82,7 +104,7 @@ These scripts hit the live network and are useful for confirming results indepen
 
 | Script | Purpose |
 | --- | --- |
-| `node scripts/verify-client.mjs` | Connects, prints chain info and block stats, benchmarks both endpoints |
+| `node scripts/verify-client.mjs` | Connects to testnet, prints chain info and block stats, benchmarks testnet and local endpoints |
 | `node scripts/measure-block-time.mjs [ms] [endpoint]` | Subscribes to new heads and reports measured block intervals |
 
 ## 🔔 Heartbeat Alert Worker
@@ -128,7 +150,8 @@ npm test
 ```
 
 Covers the alert rules, the open/repeat/recover lifecycle, webhook host validation and payload
-shape, and the poll loop's behaviour when delivery fails or no webhook is configured.
+shape, the poll loop's behaviour, network configuration, wallet chain switching, deployment
+receipts, and transaction submission.
 
 ## 🏃 Getting Started Locally
 
@@ -154,10 +177,23 @@ npm run preview
 | `npm run build` | Build for production into `dist/` |
 | `npm run preview` | Preview the production build |
 | `npm run lint` | Run `oxlint` |
-| `npm run test` | Run the worker alert-rule test suite |
+| `npm run test` | Run worker, endpoint, and EVM wallet tests |
 | `npm run verify` | Connect to the network and print chain and block stats |
 | `npm run worker` | Start the standalone heartbeat alert worker |
 | `npm run deploy` | Build and publish `dist/` to GitHub Pages |
+
+### Hackathon final-submission requirements
+
+The organizers confirmed that wallet connection, a real testnet deployment, and proof of at least
+one real on-chain transaction are all minimum requirements. Wallet connection, contract deployment,
+and a separate transaction are now implemented in the dashboard, but the on-chain requirements
+remain incomplete until a user connects an eligible EVM wallet, approves both transactions, and
+verifies their receipts. The static GitHub Pages deployment alone is not a testnet contract
+deployment or transaction proof.
+
+After the hackathon, the organizers say the demo must be developed into a commercial-ready project.
+They will publish the specific ecosystem-support application requirements in Discord; watch the
+official announcements for that process.
 
 ## 🚀 Deployment
 

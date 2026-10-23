@@ -1,5 +1,5 @@
 {
-  "endpoint": "wss://mainnet.portaldot.io",
+  "endpoint": "wss://test-node-v3.portaldot.dev",
   "webhookUrl": "https://discord.com/api/webhooks/REPLACE_ME/REPLACE_ME",
   "pollMs": 20000,
   "thresholds": {
